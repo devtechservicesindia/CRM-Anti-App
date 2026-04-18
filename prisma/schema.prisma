@@ -1,0 +1,205 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+enum Role {
+  ADMIN
+  STAFF
+  CUSTOMER
+}
+
+enum StationType {
+  PC
+  CONSOLE
+  VR
+  SIMULATOR
+}
+
+enum StationStatus {
+  AVAILABLE
+  OCCUPIED
+  MAINTENANCE
+}
+
+enum BookingStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  UPI
+  WALLET
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String
+  password      String
+  role          Role      @default(CUSTOMER)
+  avatar        String?
+  phone         String?
+  loyaltyPoints Int       @default(0)
+  totalSpent    Float     @default(0)
+  staffNotes    String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  bookings      Booking[]
+  payments      Payment[]
+  refreshTokens RefreshToken[]
+  redemptions   RewardRedemption[]
+  loyaltyTransactions LoyaltyTransaction[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model Station {
+  id         String        @id @default(cuid())
+  name       String
+  type       StationType
+  status     StationStatus @default(AVAILABLE)
+  hourlyRate Float
+  specs      Json?
+  imageUrl   String?
+  isActive   Boolean       @default(true)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  bookings Booking[]
+
+  @@map("stations")
+}
+
+model Booking {
+  id          String        @id @default(cuid())
+  userId      String
+  stationId   String
+  startTime   DateTime      @default(now())
+  endTime     DateTime?
+  duration    Int?          // in minutes
+  status      BookingStatus @default(ACTIVE)
+  totalAmount Float?
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id])
+  station Station @relation(fields: [stationId], references: [id])
+  payment Payment?
+
+  @@map("bookings")
+}
+
+model Payment {
+  id        String        @id @default(cuid())
+  bookingId String        @unique
+  userId    String
+  amount    Float
+  method    PaymentMethod
+  status    PaymentStatus @default(PENDING)
+  reference String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@map("payments")
+}
+
+model Game {
+  id          String   @id @default(cuid())
+  name        String
+  genre       String
+  platform    String
+  imageUrl    String?
+  description String?
+  isActive    Boolean  @default(true)
+  rating      Float?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("games")
+}
+
+enum RedemptionStatus {
+  PENDING
+  FULFILLED
+  REJECTED
+}
+
+model Reward {
+  id          String   @id @default(cuid())
+  name        String
+  pointsCost  Int
+  description String?
+  imageUrl    String?
+  isActive    Boolean  @default(true)
+  stock       Int      @default(999) // Optional tracking
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  redemptions RewardRedemption[]
+
+  @@map("rewards")
+}
+
+model RewardRedemption {
+  id        String           @id @default(cuid())
+  userId    String
+  rewardId  String
+  status    RedemptionStatus @default(PENDING)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id])
+  reward Reward @relation(fields: [rewardId], references: [id])
+
+  @@map("reward_redemptions")
+}
+
+model LoyaltyTransaction {
+  id        String    @id @default(cuid())
+  userId    String
+  points    Int       // Positive for EARN, negative for REDEEM / EXPIRE
+  type      String    // EARN, REDEEM, EXPIRE
+  notes     String?
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("loyalty_transactions")
+}
